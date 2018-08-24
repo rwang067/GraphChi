@@ -410,7 +410,7 @@ namespace graphchi {
             }
              
             do {
-                exec_threads = 1;
+                // exec_threads = 1;
                 omp_set_num_threads(exec_threads);
                 
         #pragma omp parallel sections 

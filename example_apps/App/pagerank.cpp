@@ -151,10 +151,10 @@ int main(int argc, const char ** argv) {
     global_logger().set_log_level(LOG_DEBUG);
 
     /* Parameters */
-    std::string filename    = get_option_string("file"); // Base filename
+    std::string filename    = get_option_string("file", "/home/wang/Documents/dataset/LiveJournal/soc-LiveJournal1.txt"); // Base filename
     int niters              = get_option_int("niters", 4);
     bool scheduler          = false;                    // Non-dynamic version of pagerank.
-    int ntop                = get_option_int("top", 20);
+    int ntop                = get_option_int("top", 100);
     
     /* Process input file - if not already preprocessed */
     int nshards             = convert_if_notexists<EdgeDataType>(filename, get_option_string("nshards", "auto"));
@@ -178,9 +178,11 @@ int main(int argc, const char ** argv) {
     
     /* Output top ranked vertices */
     std::vector< vertex_value<float> > top = get_top_vertices<float>(filename, ntop);
+    std::ofstream fout("/home/wang/Documents/dataset/LiveJournal/accurate_pr_top100.value");
     std::cout << "Print top " << ntop << " vertices:" << std::endl;
     for(int i=0; i < (int)top.size(); i++) {
-        std::cout << (i+1) << ". " << top[i].vertex << "\t" << top[i].value << std::endl;
+        std::cout << (i+1) << ". " << top[i].vertex << "\t" << top[i].value << "\t" << top[i].value/4847571 << std::endl;
+        fout << top[i].vertex << "\t" << top[i].value/4847571 << std::endl;
     }
     
     metrics_report(m);    

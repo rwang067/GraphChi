@@ -163,7 +163,7 @@ int main(int argc, const char ** argv) {
     global_logger().set_log_level(LOG_DEBUG);
 
     /* Parameters */
-    std::string filename    = get_option_string("file", "/home/wang/Documents/graph processing system/dataset/LiveJournal1/soc-LiveJournal1.txt"); // Base filename
+    std::string filename    = get_option_string("file", "/home/wang/Documents/graph processing system/dataset/LiveJournal/soc-LiveJournal1.txt"); // Base filename
     int niters              = get_option_int("niters", 10);
     bool scheduler          = false;                    // Non-dynamic version of pagerank.
     int ntop                = get_option_int("top", 20);

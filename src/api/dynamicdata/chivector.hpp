@@ -61,6 +61,9 @@ public:
     typedef uint32_t sizeword_t;
     chivector() {
         extensions = NULL;
+        // nsize = 0;
+        // ncapacity = MINCAPACITY;
+        // data = (T*)malloc(sizeof(T)*ncapacity);
     }
     
     chivector(uint16_t sz, uint16_t cap, T * dataptr) : data(dataptr) {
@@ -131,6 +134,34 @@ public:
     
     void clear() {
         nsize = 0;
+    }
+
+    void resize(uint16_t _size){
+        extensions = NULL;
+        nsize = _size;
+        ncapacity = MINCAPACITY;
+        data = (T*)malloc(sizeof(T)*ncapacity);
+    }
+
+    void truncate(int idx){
+        assert(idx <= nsize);
+        if(nsize <= ncapacity){
+            for( int i = idx; i < nsize; i++ ){
+                data[i-idx] = data[i];
+            }
+        }else{
+            // extensions->erase(extensions->begin(),extensions->begin()+idx);
+            // if(idx > ncapacity)
+            //     logstream(LOG_INFO) << "ncapacity, nsize, idx : " << ncapacity << " " << nsize << " " << idx << std::endl;
+            for( int i = idx; i < nsize; i++ ){
+                if(i < ncapacity) data[i-idx] = data[i];
+                else if(i < ncapacity+idx) data[i-idx] = (* extensions)[i - (int)ncapacity];
+                else (* extensions)[i -idx  - (int)ncapacity] = (* extensions)[i - (int)ncapacity];
+            }
+            if(nsize-idx-ncapacity > 0) extensions->resize(nsize-idx-ncapacity);
+            else extensions->resize(0);
+        }
+        nsize = nsize - idx;
     }
     
     // TODO: iterators

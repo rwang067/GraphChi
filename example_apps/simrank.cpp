@@ -123,7 +123,7 @@ int main(int argc, const char ** argv) {
     metrics m("simrank");
     
     /* Basic arguments for application */
-    std::string filename = get_option_string("file", "/home/wang/Documents/graph processing system/dataset/LiveJournal1/soc-LiveJournal1.txt");  // Base filename
+    std::string filename = get_option_string("file", "/home/wang/Documents/dataset/LiveJournal/soc-LiveJournal1.txt");  // Base filename
     int a = get_option_int("a", 1); // 
     int b = get_option_int("b", 2); // 
     int R = get_option_int("R", 100); // Number of walks
