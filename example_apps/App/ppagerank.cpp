@@ -163,10 +163,10 @@ int main(int argc, const char ** argv) {
     global_logger().set_log_level(LOG_DEBUG);
 
     /* Parameters */
-    std::string filename    = get_option_string("file", "/home/wang/Documents/graph processing system/dataset/LiveJournal/soc-LiveJournal1.txt"); // Base filename
-    int niters              = get_option_int("niters", 10);
+    std::string filename    = get_option_string("file", "/home/wang/Documents/DataSet/LiveJournal/soc-LiveJournal1.txt"); // Base filename
+    int niters              = get_option_int("niters", 100);
     bool scheduler          = false;                    // Non-dynamic version of pagerank.
-    int ntop                = get_option_int("top", 20);
+    int ntop                = get_option_int("top", 100);
     int source                = get_option_int("source", 0);
 
     
@@ -188,14 +188,17 @@ int main(int argc, const char ** argv) {
         engine.run(program, niters);
     } else {*/
         PPagerankProgram program;
+        program.source = source;
         engine.run(program, niters);
     //}
     
     /* Output top ranked vertices */
     std::vector< vertex_value<float> > top = get_top_vertices<float>(filename, ntop);
+    std::ofstream fout(filename+"_"+std::to_string(niters)+"_CompError/accurate_ppr_top100.value");
     std::cout << "Print top " << ntop << " vertices:" << std::endl;
     for(int i=0; i < (int)top.size(); i++) {
         std::cout << (i+1) << ". " << top[i].vertex << "\t" << top[i].value << std::endl;
+        fout << top[i].vertex << "\t" << top[i].value << std::endl;
     }
     
     metrics_report(m);    

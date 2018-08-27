@@ -217,6 +217,7 @@ namespace graphchi {
         for(try_shard_num=start_num; try_shard_num <= last_shard_num; try_shard_num++) {
             std::string last_shard_name = filename_shard_edata<EdgeDataType>(base_filename, try_shard_num - 1, try_shard_num);
             std::string last_block_name = filename_shard_edata_block(last_shard_name, 0, blocksize);
+            logstream(LOG_DEBUG) << "last_block_name : " << last_block_name << std::endl;
             int tryf = open(last_block_name.c_str(), O_RDONLY);
             if (tryf >= 0) {
                 // Found!

@@ -61,7 +61,7 @@ public:
     unsigned N, R, L;
     unsigned *vertex_value;
     chivector<WalkDataType> *random_jump_walks;
-    std::string vertex_value_file;
+    std::string basefilename;
     
 public:
     int walks_per_source() {
@@ -72,11 +72,12 @@ public:
         return true;
     }
 
-    void initialization(unsigned _N, unsigned _R, unsigned _L,std::string _vertex_value_file){
+    void initialization(unsigned _N, unsigned _R, unsigned _L,std::string _basefilename){
         N = _N;
         R = _R;
         L = _L;
-        vertex_value_file = _vertex_value_file;
+        basefilename = _basefilename;
+        logstream(LOG_DEBUG) << "random_jump_walks size : " << sizeof(chivector<WalkDataType>) << " " << N << std::endl;
         random_jump_walks = new chivector<WalkDataType>[N];
         for(unsigned i=0; i<N; i++)
             random_jump_walks[i].resize(0);
@@ -194,7 +195,7 @@ public:
     void writeFile(){
         // compute the sum of counting
         vertex_value = (unsigned*)malloc(sizeof(unsigned)*N);
-        int fv = open(vertex_value_file.c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+        int fv = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
         assert(fv >= 0);
         preada(fv, vertex_value, sizeof(unsigned)*N, sizeof(unsigned)*0);
         close(fv);
@@ -212,14 +213,14 @@ public:
             logstream(LOG_INFO) << " s , len : " << st << " " << len << std::endl;
             // len = min( maxwindow, N - st );
             vertex_value = (unsigned*)malloc(sizeof(unsigned)*len);
-            fv = open(vertex_value_file.c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+            fv = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
             assert(fv >= 0);
             preada(fv, vertex_value, sizeof(unsigned)*len, sizeof(unsigned)*st);
             close(fv);
             float *visit_prob = (float*)malloc(sizeof(float)*len);
             for( unsigned i = 0; i < len; i++ )
                 visit_prob[i] = vertex_value[i] * 1.0 / sum;
-            int fp = open(vertex_value_file.c_str(), O_WRONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+            int fp = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_WRONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
             assert(fp >= 0);
             pwritea(fp, visit_prob, sizeof(unsigned)*len, sizeof(unsigned)*st);
             close(fp);
@@ -232,13 +233,13 @@ public:
     void computeError(int ntop){
         //read the vertex value
         float* visit_prob = (float*)malloc(sizeof(float)*N);
-        int fv = open(vertex_value_file.c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+        int fv = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
         assert(fv >= 0);
         preada(fv, visit_prob, sizeof(float)*N, 0);
         close(fv);
 
         // read the accurate value and compute the error
-        std::ifstream fin("/home/wang/Documents/dataset/LiveJournal/accurate_pr_top100.value");
+        std::ifstream fin(basefilename + "_CompError/accurate_pr_top100.value");
         int vid ;
         float err=0, appv; //accurate pagerank value
         for(int i = 0; i < ntop; i++ ){
@@ -251,7 +252,7 @@ public:
         logstream(LOG_DEBUG) << "Error : " << err << std::endl;
 
         std::ofstream errfile;
-        errfile.open("/home/wang/Documents/dataset/LiveJournal/pr_top100.error", std::ofstream::app);
+        errfile.open(basefilename + "_CompError/GraphChi_pr_top100.error", std::ofstream::app);
         errfile << err << "\n" ;
         errfile.close();
     }
@@ -270,7 +271,7 @@ int main(int argc, const char ** argv) {
     metrics m("randomwalk");
     
     /* Basic arguments for application */
-    std::string filename = get_option_string("file", "../dataset/LiveJournal/soc-LiveJournal1.txt");  // Base filename
+    std::string filename = get_option_string("file", "../DataSet/LiveJournal/soc-LiveJournal1.txt");  // Base filename
     int N           = get_option_int("N", 4847571); // Number of iterations
     int L           = get_option_int("L", 10); // Number of iterations
     int R           = get_option_int("R", 10); // 
@@ -282,7 +283,7 @@ int main(int argc, const char ** argv) {
     
     /* Run */
     PPVProgram program;
-    program.initialization(N,R,L,filename_vertex_data<VertexDataType>(filename));
+    program.initialization(N,R,L,filename);
     graphchi_engine<VertexDataType, EdgeDataType> engine(filename, nshards, scheduler, m);
     if (preexisting_shards) {
         engine.reinitialize_edge_data(0);
