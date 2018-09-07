@@ -80,6 +80,13 @@ namespace graphchi {
         ss << "_GraphChi/" << nshards << ".intervals";
         return ss.str();
     }
+
+    // static std::string filename_jumped_walks(std::string basefilename, int intervalid) {
+    //     std::stringstream ss;
+    //     ss << basefilename;
+    //     ss << "_GraphChi/random_jumped_walks/invl_" << intervalid << ".walks";
+    //     return ss.str();
+    // }
     
     
     static std::string VARIABLE_IS_NOT_USED get_part_str(int p, int nshards) {

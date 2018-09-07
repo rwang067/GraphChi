@@ -363,19 +363,23 @@ namespace graphchi {
             for(int p=-1; p < nshards; p++)  {
                 if (p==(-1)) {
                     /* Load memory shard - is internally parallelized */
+                    // logstream(LOG_DEBUG) << "Load memory shard..." << std::endl;
                     if (!memoryshard->loaded()) {
                         memoryshard->load();
                     }
                     
                     /* Load vertex edges from memory shard */
+                    // logstream(LOG_DEBUG) << "Load vertex edges from memory shard..." << std::endl;
                     memoryshard->load_vertices(sub_interval_st, sub_interval_en, vertices, true, !disable_outedges);
                   
                     /* Load vertices */
+                    // logstream(LOG_DEBUG) << "Load vertices..." << std::endl;
                     if (!disable_vertexdata_storage) {
                         vertex_data_handler->load(sub_interval_st, sub_interval_en);
                     }
                 } else {
                     /* Load edges from a sliding shard */
+                    // if(p>295)logstream(LOG_DEBUG) << "Load edges from a sliding shard p: " << p << " ... exec_interval = " << exec_interval << std::endl;
                     if (!disable_outedges) {
                         if (p != exec_interval) {
                             if (randomization) {
@@ -390,7 +394,9 @@ namespace graphchi {
             }
             
             /* Wait for all reads to complete */
+            // logstream(LOG_DEBUG) << "Wait for all reads to complete.." << std::endl;
             iomgr->wait_for_reads();
+            // logstream(LOG_DEBUG) << "load_before_updates complete!" << std::endl;
         }
         
         virtual void exec_updates(GraphChiProgram<VertexDataType, EdgeDataType, svertex_t> &userprogram,

@@ -7,10 +7,14 @@ DEBUGFLAGS = -g -ggdb $(INCFLAGS)
 HEADERS=$(shell find . -name '*.hpp')
 
 
-all: apps tests 
-apps:  example_apps/simrank example_apps/connectedcomponents example_apps/personalizedpagerank example_apps/ppagerank example_apps/pagerank example_apps/pagerank_functional example_apps/communitydetection example_apps/unionfind_connectedcomps example_apps/stronglyconnectedcomponents example_apps/trianglecounting example_apps/randomwalks example_apps/minimumspanningforest
+all: example_apps tests 
+example_apps: example_apps/simrank example_apps/connectedcomponents example_apps/personalizedpagerank example_apps/ppagerank example_apps/pagerank example_apps/pagerank_functional example_apps/communitydetection example_apps/unionfind_connectedcomps example_apps/stronglyconnectedcomponents example_apps/trianglecounting example_apps/randomwalks example_apps/minimumspanningforest
 als: example_apps/matrix_factorization/als_edgefactors  example_apps/matrix_factorization/als_vertices_inmem
 tests: tests/basic_smoketest tests/bulksync_functional_test tests/dynamicdata_smoketest tests/test_dynamicedata_loader
+
+apps: comp query
+comp: apps/pagerank apps/rwdomination apps/graphlet  
+query: apps/personalizedpagerank apps/simrank apps/reachability 
 
 echo:
 	echo $(HEADERS)
@@ -31,7 +35,9 @@ example_apps/% : example_apps/%.cpp $(HEADERS)
 	@mkdir -p bin/$(@D)
 	$(CPP) $(CPPFLAGS) -Iexample_apps/ $@.cpp -o bin/$@ $(LINKERFLAGS) 
 
-
+apps/% : apps/%.cpp $(HEADERS)
+	@mkdir -p bin/$(@D)
+	$(CPP) $(CPPFLAGS) -Iapps/ $@.cpp -o bin/$@ $(LINKERFLAGS)
 
 myapps/% : myapps/%.cpp $(HEADERS)
 	@mkdir -p bin/$(@D)

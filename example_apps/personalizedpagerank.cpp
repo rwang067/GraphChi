@@ -39,6 +39,7 @@
 #define DYNAMICEDATA 1
 
 #include <string>
+#include <vector>
 
 #include "graphchi_basic_includes.hpp"
 #include "api/dynamicdata/chivector.hpp"
@@ -50,7 +51,7 @@ using namespace graphchi;
  * Type definitions. Remember to create suitable graph shards using the
  * Sharder-program.
  */
-typedef float VertexDataType;
+typedef unsigned VertexDataType;
 typedef chivector<vid_t>  EdgeDataType;
 
  
@@ -58,15 +59,17 @@ struct PPVProgram : public GraphChiProgram<VertexDataType, EdgeDataType> {
 
 public:
     vid_t s;
-    int R;
-    int L;
-    int sum;
+    int N;
+    unsigned R;
+    unsigned L;
+    std::vector<unsigned> restart;
     
 public:
     int walks_per_source() {
         // return 1667;
         // return 3167;
-        return R+R*L*0.15;
+        // return R+R*L*0.15;
+        return R;
     }
     
     bool is_source(vid_t v) {
@@ -87,67 +90,105 @@ public:
                     if (outedge != NULL) {
                         chivector<vid_t> * evector = outedge->get_vector();
                         /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
-                        evector->add(vertex.id());
+                        unsigned walk = (( vertex.id() & 0x3ffff ) << 14 ) | ( i & 0x3fff ) ;
+                        evector->add(walk);
                         gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
                     }
                 }
-                vertex.set_data(0.15);
+                vertex.set_data(0);
             }else{
                 vertex.set_data(0);
             }
         } else {
-            /* Check inbound edges for walks and advance them. */
             int num_walks = 0;
+            if (is_source(vertex.id())) {
+                for( unsigned i = 0; i < restart.size(); i++ ){
+                    unsigned walk = restart[i];
+                    if( (walk & 0x3fff) < L ){
+                        walk++;
+                        graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
+                        float cc = ((float)rand())/RAND_MAX;
+                        if (outedge != NULL && cc > 0.15 ) {
+                            chivector<vid_t> * evector = outedge->get_vector();
+                             //Add a random walk particle, represented by the vertex-id of the source (this vertex) 
+                            evector->add(walk);
+                            gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+                        }
+                    }else{
+                        vertex.set_data(vertex.get_data() + 1);
+                    }
+                }
+                num_walks += restart.size();
+                restart.clear();
+            }
+            /* Check inbound edges for walks and advance them. */
             for(int i=0; i < vertex.num_inedges(); i++) {
                 graphchi_edge<EdgeDataType> * edge = vertex.inedge(i);
                 chivector<vid_t> * invector = edge->get_vector();
                 for(int j=0; j < invector->size(); j++) {
                     /* Get one walk */
                     vid_t walk = invector->get(j);
-                    /* Move to a random out-edge */
-                    graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
-                    float cc = ((float)rand())/RAND_MAX;
-                    if (outedge != NULL && cc > 0.15 ) {
-                        chivector<vid_t> * outvector = outedge->get_vector();
-                        /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
-                        outvector->add(walk);
-                        gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+                    if( (walk & 0x3fff) < L ){
+                        walk++;
+                        /* Move to a random out-edge */
+                        graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
+                        float cc = ((float)rand())/RAND_MAX;
+                        if (outedge != NULL && cc > 0.15 ) {
+                            chivector<vid_t> * outvector = outedge->get_vector();
+                            /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
+                            outvector->add(walk);
+                            gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+                        }else{
+                            restart.push_back(walk);//jump back to source
+                        }
                     }else{
-                        ;//jump back to source
+                        vertex.set_data(vertex.get_data() + 1);
                     }
                     num_walks ++;
-                }
+            }
                 /* Remove all walks from the inbound vector */
                 invector->clear();
             }
             /* Keep track of the walks passed by via this vertex */
-            vertex.set_data(vertex.get_data() + num_walks*1.0/(3000000));
-            sum += num_walks;
+            // std::cout << "--------------vertex vertex.get_data(), num_walks : " << vertex.id() << " " << vertex.get_data() <<" " << num_walks << std::endl;
+            // vertex.set_data(vertex.get_data() + num_walks);
         }
     }
-    
-    /**
-     * Called before an iteration starts.
-     */
-    void before_iteration(int iteration, graphchi_context &gcontext) {
-    }
-    
-    /**
-     * Called after an iteration has finished.
-     */
-    void after_iteration(int iteration, graphchi_context &gcontext) {
-    }
-    
-    /**
-     * Called before an execution interval is started.
-     */
-    void before_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
-    }
-    
-    /**
-     * Called after an execution interval has finished.
-     */
-    void after_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
+
+    void writeFile(std::string basefilename){
+        // read the vertex value
+        unsigned *vertex_value = (unsigned*)malloc(N*sizeof(unsigned));
+        // std::string vertex_value_file = filename_vertex_data(basefilename);
+        std::string vertex_value_file = basefilename + "_GraphChi/4B.vout";
+        int f1 = open(vertex_value_file.c_str(), O_RDONLY, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+        if (f1 < 0) {
+            logstream(LOG_ERROR) << "Could not open " << vertex_value_file << " error: " << strerror(errno) << std::endl;
+        }
+        assert(f1 >= 0);
+        preada(f1, vertex_value, N*sizeof(float), 0);
+        close(f1);
+        //compute the probability
+         unsigned sum = 0;
+        for( int i = 0; i < N; i++ ){
+            if(vertex_value[i] > R )
+                std::cout << "i, vertex_value : " << i << " " << vertex_value[i] << std::endl;
+            sum += vertex_value[i];
+        }
+        std::cout << "sum : " << sum << " " << R*L << std::endl;
+        float *visit_prob = (float*)malloc(N*sizeof(float));
+        for( int i = 0; i < N; i++ ){
+            visit_prob[i] = vertex_value[i] * 1.0 / sum;
+        }
+
+        int f = open(vertex_value_file.c_str(), O_WRONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+        if (f < 0) {
+            logstream(LOG_ERROR) << "Could not open " << vertex_value_file << " error: " << strerror(errno) << std::endl;
+        }
+        assert(f >= 0);
+        pwritea(f, visit_prob, N*sizeof(float), 0);
+        close(f);
+        free(vertex_value);
+        free(visit_prob);
     }
     
 };
@@ -165,8 +206,8 @@ int main(int argc, const char ** argv) {
     
     /* Basic arguments for application */
     std::string filename = get_option_string("file", "/home/wang/Documents/graph processing system/dataset/LiveJournal1/soc-LiveJournal1.txt");  // Base filename
+    int nvertices           = get_option_int("nvertices", 4847571); // Number of iterations
     int source           = get_option_int("source", 0); // 
-    int N           = get_option_int("N", 4847571); // Number of iterations
     int L           = get_option_int("L", 20); // Number of iterations
     int R           = get_option_int("R", 100000); // 
     bool scheduler       = true;                       // Whether to use selective scheduling
@@ -178,47 +219,47 @@ int main(int argc, const char ** argv) {
     /* Run */
     PPVProgram program;
     program.s = (vid_t)source;
+    program.N = nvertices;
     program.R = R;
     program.L = L;
-    program.sum = 0;
     graphchi_engine<VertexDataType, EdgeDataType> engine(filename, nshards, scheduler, m);
     if (preexisting_shards) {
         engine.reinitialize_edge_data(0);
     }
     engine.run(program, L);
+    program.writeFile(filename);
     
     /* List top 20 */
     int ntop = 50;
-    std::vector< vertex_value<VertexDataType> > top = get_top_vertices<VertexDataType>(filename, ntop);
+    std::vector< vertex_value<float> > top = get_top_vertices<float>(filename, ntop);
     std::cout << "Print top 20 vertices: " << std::endl;
     for(int i=0; i < (int) top.size(); i++) {
         std::cout << (i+1) << ". " << top[i].vertex << "\t" << top[i].value << std::endl;
     }
 
     // read the accurate value
-    float *ppv = (float*)malloc(N*sizeof(float));
-    std::string PPV_file = "/home/wang/Documents/graph processing system/dataset/LiveJournal1/PPR0.vout";
-    int f1 = open(PPV_file.c_str(), O_RDONLY, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
-    if (f1 < 0) {
-        logstream(LOG_ERROR) << "Could not open " << PPV_file << " error: " << strerror(errno) << std::endl;
-    }
-    assert(f1 >= 0);
-    preada(f1, ppv, N*sizeof(float), 0);
-    close(f1);
-    //compute the error
-    float err = 0;
-    for( int i = 0; i < ntop; i++ ){
-        err += fabs(top[i].value - ppv[top[i].vertex])/ppv[top[i].vertex];//(ppv[i]-visit_prob[i])*(ppv[i]-visit_prob[i]);
-    }
-    err = err / ntop;
-    std::cout << "Error : " << err << std::endl;
-    std::cout << "sum : " << program.sum << std::endl;
+        float *ppv = (float*)malloc(nvertices*sizeof(float));
+        std::string PPV_file = "/home/wang/Documents/graph processing system/dataset/LiveJournal1/PPR0.vout";
+        int f1 = open(PPV_file.c_str(), O_RDONLY, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
+        if (f1 < 0) {
+            logstream(LOG_ERROR) << "Could not open " << PPV_file << " error: " << strerror(errno) << std::endl;
+        }
+        assert(f1 >= 0);
+        preada(f1, ppv, nvertices*sizeof(float), 0);
+        close(f1);
+        //compute the error
+        float err = 0;
+        for( int i = 0; i < ntop; i++ ){
+            err += fabs(top[i].value - ppv[top[i].vertex])/ppv[top[i].vertex];//(ppv[i]-visit_prob[i])*(ppv[i]-visit_prob[i]);
+        }
+        err = err / ntop;
+        std::cout << "Error : " << err << std::endl;
 
-    std::ofstream errfile;
-    errfile.open("/home/wang/Documents/graph processing system/dataset/LiveJournal1/ppv0.error", std::ofstream::app);
-    errfile << err << "\n" ;
-    errfile.close();
-    free(ppv);
+        std::ofstream errfile;
+        errfile.open("/home/wang/Documents/graph processing system/dataset/LiveJournal1/ppv0.error", std::ofstream::app);
+        errfile << err << "\n" ;
+        errfile.close();
+        free(ppv);
 
     /* Report execution metrics */
     metrics_report(m);

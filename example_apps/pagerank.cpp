@@ -1,5 +1,3 @@
-
-
 /**
  * @file
  * @author  Aapo Kyrola <akyrola@cs.cmu.edu>
@@ -8,13 +6,13 @@
  * @section LICENSE
  *
  * Copyright [2012] [Aapo Kyrola, Guy Blelloch, Carlos Guestrin / Carnegie Mellon University]
- *
+ * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * 
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,276 +22,172 @@
  *
  * @section DESCRIPTION
  *
- * Random walk simulation. From a set of source vertices, a set of 
- * random walks is started. Random walks walk via edges, and we use the
- * dynamic chivectors to support multiple walks in one edge. Each
- * vertex keeps track of the walks that pass by it, thus in the end
- * we have estimate of the "pagerank" of each vertex.
- *
- * Note, this version does not support 'resets' of random walks.
- * TODO: from each vertex, start new random walks with some probability,
- * and also terminate a walk with some probablity.
- *
+ * Simple pagerank implementation. Uses the basic vertex-based API for
+ * demonstration purposes. A faster implementation uses the functional API,
+ * "pagerank_functional".
  */
-
-#define DYNAMICEDATA 1
 
 #include <string>
+#include <fstream>
+#include <cmath>
+
+#define GRAPHCHI_DISABLE_COMPRESSION
+
 
 #include "graphchi_basic_includes.hpp"
-#include "api/dynamicdata/chivector.hpp"
 #include "util/toplist.hpp"
-#include "api/chifilenames.hpp"
 
 using namespace graphchi;
+ 
+#define THRESHOLD 1e-1    
+#define RANDOMRESETPROB 0.15
 
-/**
- * Type definitions. Remember to create suitable graph shards using the
- * Sharder-program.
- */
-typedef unsigned WalkDataType;
-typedef unsigned VertexDataType;
-typedef chivector<WalkDataType>  EdgeDataType;
 
-struct PPVProgram : public GraphChiProgram<VertexDataType, EdgeDataType> {
+typedef float VertexDataType;
+typedef float EdgeDataType;
 
-public:
-    unsigned N, R, L;
-    unsigned *vertex_value;
-    chivector<WalkDataType> *random_jump_walks;
-    std::string basefilename;
+struct PagerankProgram : public GraphChiProgram<VertexDataType, EdgeDataType> {
     
-public:
-    int walks_per_source() {
-        return R;
-    }
-    
-    bool is_source(vid_t v) {
-        return true;
-    }
-
-    void initialization(unsigned _N, unsigned _R, unsigned _L,std::string _basefilename){
-        N = _N;
-        R = _R;
-        L = _L;
-        basefilename = _basefilename;
-        logstream(LOG_DEBUG) << "random_jump_walks size : " << sizeof(chivector<WalkDataType>) << " " << N << std::endl;
-        random_jump_walks = new chivector<WalkDataType>[N];
-        for(unsigned i=0; i<N; i++)
-            random_jump_walks[i].resize(0);
+    /**
+      * Called before an iteration starts. Not implemented.
+      */
+    void before_iteration(int iteration, graphchi_context &info) {
     }
     
     /**
-     *  Vertex update function.
-     */
-    void update(graphchi_vertex<VertexDataType, EdgeDataType > &vertex, graphchi_context &gcontext) {
-        if (gcontext.iteration == 0) {
-            
-            if (is_source(vertex.id())) {
-                /* Add a random walk particle, represented by the hop of the walk */
-                WalkDataType walk = 1;
-                for(int i=0; i < walks_per_source(); i++) {
-                    /* Get random out edge's vector */
-                    graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
-                    if (outedge != NULL) {
-                        chivector<WalkDataType> * evector = outedge->get_vector();
-                        evector->add(walk);
-                        gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
-                    }else{ //random select a vertex to jump
-                        vid_t rand_vert = rand() % N;
-                        random_jump_walks[rand_vert].add(walk);
-                        gcontext.scheduler->add_task(rand_vert); // Schedule destination
-                    }
-                }
-                vertex.set_data(R);
-            }else{
-                vertex.set_data(0);
+      * Called after an iteration has finished. Not implemented.
+      */
+    void after_iteration(int iteration, graphchi_context &ginfo) {
+    }
+    
+    /**
+      * Called before an execution interval is started. Not implemented.
+      */
+    void before_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &ginfo) {        
+    }
+    
+    
+    /**
+      * Pagerank update function.
+      */
+    void update(graphchi_vertex<VertexDataType, EdgeDataType> &v, graphchi_context &ginfo) {
+        float sum=0;
+        if (ginfo.iteration == 0) {
+            /* On first iteration, initialize vertex and out-edges. 
+               The initialization is important,
+               because on every run, GraphChi will modify the data in the edges on disk. 
+             */
+            for(int i=0; i < v.num_outedges(); i++) {
+                graphchi_edge<float> * edge = v.outedge(i);
+                edge->set_data(1.0 / v.num_outedges());
             }
+            v.set_data(RANDOMRESETPROB); 
         } else {
-            /* Check inbound edges for walks and advance them. */
-            int num_walks = 0;
-            //update the walks from in_edges
-            for(int i=0; i < vertex.num_inedges(); i++) {
-                graphchi_edge<EdgeDataType> * edge = vertex.inedge(i);
-                chivector<WalkDataType> * invector = edge->get_vector();
-                int j;
-                for(j=0; j < invector->size(); j++) {
-                    /* Get one walk */
-                    WalkDataType walk = invector->get(j);
-                    assert(walk >= (WalkDataType)gcontext.iteration);
-                    if(walk > (WalkDataType)gcontext.iteration ) break;
-                    /* Move to a random out-edge */
-                    graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
-                    float cc = ((float)rand())/RAND_MAX;
-                    if (outedge != NULL && cc > 0.15 ) {
-                        chivector<WalkDataType> * outvector = outedge->get_vector();
-                        outvector->add(walk+1);
-                        gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
-                    }else{ //random jump
-                        vid_t rand_vert = rand() % N;
-                        random_jump_walks[rand_vert].add(walk+1);
-                        gcontext.scheduler->add_task(rand_vert); // Schedule destination
-                    }
-                    num_walks ++;
-                }
-                /* Remove all walks from the inbound vector */
-                // invector->clear();
-                invector->truncate(j);
+            /* Compute the sum of neighbors' weighted pageranks by
+               reading from the in-edges. */
+            for(int i=0; i < v.num_inedges(); i++) {
+                float val = v.inedge(i)->get_data();
+                sum += val;                    
             }
-
-            //update the walks in random_jump_walks
-            int i;
-            for(i=0; i < random_jump_walks[vertex.id()].size(); i++) {
-                WalkDataType walk = random_jump_walks[vertex.id()].get(i);
-                assert(walk >= (WalkDataType)gcontext.iteration);
-                if(walk > (WalkDataType)gcontext.iteration ) break;
-                /* Move to a random out-edge */
-                graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
-                float cc = ((float)rand())/RAND_MAX;
-                if (outedge != NULL && cc > 0.15 ) {
-                    chivector<WalkDataType> * outvector = outedge->get_vector();
-                    /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
-                    outvector->add(walk+1);
-                    gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+            
+            /* Compute my pagerank */
+            float pagerank = RANDOMRESETPROB + (1 - RANDOMRESETPROB) * sum;
+            
+            /* Write my pagerank divided by the number of out-edges to
+               each of my out-edges. */
+            if (v.num_outedges() > 0) {
+                float pagerankcont = pagerank / v.num_outedges();
+                for(int i=0; i < v.num_outedges(); i++) {
+                    graphchi_edge<float> * edge = v.outedge(i);
+                    edge->set_data(pagerankcont);
                 }
-                else{ //random jump
-                    vid_t rand_vert = rand() % N;
-                    random_jump_walks[rand_vert].add(walk+1);
-                    gcontext.scheduler->add_task(rand_vert); // Schedule destination
-                }
-                num_walks ++;
             }
-            random_jump_walks[vertex.id()].truncate(i);
-            vertex.set_data(vertex.get_data() + num_walks);
+                
+            /* Keep track of the progression of the computation.
+               GraphChi engine writes a file filename.deltalog. */
+            ginfo.log_change(std::abs(pagerank - v.get_data()));
+            
+            /* Set my new pagerank as the vertex value */
+            v.set_data(pagerank); 
         }
-    }
-    
-    /**
-     * Called before an iteration starts.
-     */
-    void before_iteration(int iteration, graphchi_context &gcontext) {
-    }
-    
-    /**
-     * Called after an iteration has finished.
-     */
-    void after_iteration(int iteration, graphchi_context &gcontext) {
-    }
-    
-    /**
-     * Called before an execution interval is started.
-     */
-    void before_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
-    }
-    
-    /**
-     * Called after an execution interval has finished.
-     */
-    void after_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
-    }
-
-    void writeFile(){
-        // compute the sum of counting
-        vertex_value = (unsigned*)malloc(sizeof(unsigned)*N);
-        int fv = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
-        assert(fv >= 0);
-        preada(fv, vertex_value, sizeof(unsigned)*N, sizeof(unsigned)*0);
-        close(fv);
-        unsigned sum = 0;
-        for( unsigned i = 0; i < N; i++ )
-            sum += vertex_value[i];
-        logstream(LOG_INFO) << "sum : " << sum << std::endl;
-        free(vertex_value);
-
-        // conpute the counting probability
-        unsigned maxwindow = 400000000;
-        vid_t st = 0, len = 0;
-        while( st < N ){
-            len = N-st < maxwindow ? N-st : maxwindow;
-            logstream(LOG_INFO) << " s , len : " << st << " " << len << std::endl;
-            // len = min( maxwindow, N - st );
-            vertex_value = (unsigned*)malloc(sizeof(unsigned)*len);
-            fv = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
-            assert(fv >= 0);
-            preada(fv, vertex_value, sizeof(unsigned)*len, sizeof(unsigned)*st);
-            close(fv);
-            float *visit_prob = (float*)malloc(sizeof(float)*len);
-            for( unsigned i = 0; i < len; i++ )
-                visit_prob[i] = vertex_value[i] * 1.0 / sum;
-            int fp = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_WRONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
-            assert(fp >= 0);
-            pwritea(fp, visit_prob, sizeof(unsigned)*len, sizeof(unsigned)*st);
-            close(fp);
-            free(vertex_value);
-            free(visit_prob);
-            st += len;
-        }
-    }
-
-    void computeError(int ntop){
-        //read the vertex value
-        float* visit_prob = (float*)malloc(sizeof(float)*N);
-        int fv = open(filename_vertex_data<VertexDataType>(basefilename).c_str(), O_RDONLY | O_CREAT, S_IROTH | S_IWOTH | S_IWUSR | S_IRUSR);
-        assert(fv >= 0);
-        preada(fv, visit_prob, sizeof(float)*N, 0);
-        close(fv);
-
-        // read the accurate value and compute the error
-        std::ifstream fin(basefilename + "_CompError/accurate_pr_top100.value");
-        int vid ;
-        float err=0, appv; //accurate pagerank value
-        for(int i = 0; i < ntop; i++ ){
-            fin >> vid >> appv;
-            // logstream(LOG_INFO) << "vid appv vertex_value err: " << vid << " " << appv << " " << visit_prob[vid] << " " << fabs(visit_prob[vid]-appv)/appv << std::endl;
-            err += fabs(visit_prob[vid]-appv)/appv;
-        }
-        free(visit_prob);
-        err = err / ntop;
-        logstream(LOG_DEBUG) << "Error : " << err << std::endl;
-
-        std::ofstream errfile;
-        errfile.open(basefilename + "_CompError/GraphChi_pr_top100.error", std::ofstream::app);
-        errfile << err << "\n" ;
-        errfile.close();
     }
     
 };
 
- 
+/**
+  * Faster version of pagerank which holds vertices in memory. Used only if the number
+  * of vertices is small enough.
+  */
+struct PagerankProgramInmem : public GraphChiProgram<VertexDataType, EdgeDataType> {
+    
+    std::vector<EdgeDataType> pr;
+    PagerankProgramInmem(int nvertices) :   pr(nvertices, RANDOMRESETPROB) {}
+    
+    void update(graphchi_vertex<VertexDataType, EdgeDataType> &v, graphchi_context &ginfo) {
+        if (ginfo.iteration > 0) {
+            float sum=0;
+            for(int i=0; i < v.num_inedges(); i++) {
+              sum += pr[v.inedge(i)->vertexid];
+            }
+            if (v.outc > 0) {
+                pr[v.id()] = (RANDOMRESETPROB + (1 - RANDOMRESETPROB) * sum) / v.outc;
+            } else {
+                pr[v.id()] = (RANDOMRESETPROB + (1 - RANDOMRESETPROB) * sum);
+            }
+        } else if (ginfo.iteration == 0) {
+            if (v.outc > 0) pr[v.id()] = 1.0f / v.outc;
+        }
+        if (ginfo.iteration == ginfo.num_iterations - 1) {
+            /* On last iteration, multiply pr by degree and store the result */
+            v.set_data(v.outc > 0 ? pr[v.id()] * v.outc : pr[v.id()]);
+        }
+    }
+    
+};
 
 int main(int argc, const char ** argv) {
-    /* GraphChi initialization will read the command line
-     arguments and the configuration file. */
     graphchi_init(argc, argv);
+    metrics m("pagerank");
+    global_logger().set_log_level(LOG_DEBUG);
+
+    /* Parameters */
+    std::string filename    = get_option_string("file", "/home/wang/Documents/DataSet/LiveJournal/soc-LiveJournal1.txt"); // Base filename
+    int nvertices              = get_option_int("nvertices", 4847571);
+    int niters              = get_option_int("niters", 20);
+    bool scheduler          = false;                    // Non-dynamic version of pagerank.
+    int ntop                = get_option_int("top", 100);
     
-    /* Metrics object for keeping track of performance counters
-     and other information. Currently required. */
-    metrics m("randomwalk");
-    
-    /* Basic arguments for application */
-    std::string filename = get_option_string("file", "../DataSet/LiveJournal/soc-LiveJournal1.txt");  // Base filename
-    int N           = get_option_int("N", 4847571); // Number of iterations
-    int L           = get_option_int("L", 10); // Number of iterations
-    int R           = get_option_int("R", 10); // 
-    bool scheduler       = true;                       // Whether to use selective scheduling
-    
-    /* Detect the number of shards or preprocess an input to create them */
-    bool preexisting_shards;
-    int nshards          = convert_if_notexists<vid_t>(filename, get_option_string("nshards", "auto"), preexisting_shards);
-    
+    /* Process input file - if not already preprocessed */
+    int nshards             = convert_if_notexists<EdgeDataType>(filename, get_option_string("nshards", "auto"));
+
     /* Run */
-    PPVProgram program;
-    program.initialization(N,R,L,filename);
-    graphchi_engine<VertexDataType, EdgeDataType> engine(filename, nshards, scheduler, m);
-    if (preexisting_shards) {
-        engine.reinitialize_edge_data(0);
+    graphchi_engine<float, float> engine(filename, nshards, scheduler, m); 
+    engine.set_modifies_inedges(false); // Improves I/O performance.
+    
+    bool inmemmode = engine.num_vertices() * sizeof(EdgeDataType) < (size_t)engine.get_membudget_mb() * 1024L * 1024L;
+    if (inmemmode) {
+        logstream(LOG_INFO) << "Running Pagerank by holding vertices in-memory mode!" << std::endl;
+        engine.set_modifies_outedges(false);
+        engine.set_disable_outedges(true);
+        engine.set_only_adjacency(true);
+        PagerankProgramInmem program(engine.num_vertices());
+        engine.run(program, niters);
+    } else {
+        PagerankProgram program;
+        engine.run(program, niters);
     }
-    engine.run(program, L);
-
-    program.writeFile();
-    program.computeError(100);
-
-    /* Report execution metrics */
-    metrics_report(m);
+    
+    /* Output top ranked vertices */
+    std::vector< vertex_value<float> > top = get_top_vertices<float>(filename, ntop);
+    mkdir((filename+"_CompError/").c_str(), 0777);
+    std::ofstream fout(filename+"_CompError/accurate_pr_top100.value");
+    std::cout << "Print top " << ntop << " vertices:" << std::endl;
+    for(int i=0; i < (int)top.size(); i++) {
+        std::cout << (i+1) << ". " << top[i].vertex << "\t" << top[i].value << "\t" << top[i].value/nvertices << std::endl;
+        fout << top[i].vertex << "\t" << top[i].value/nvertices << std::endl;
+    }
+    
+    metrics_report(m);    
     return 0;
 }
+
