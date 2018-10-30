@@ -233,7 +233,8 @@ public:
         close(fv);
 
         // read the accurate value and compute the error
-        std::ifstream fin(basefilename + "_CompError/accurate_pr_top100.value");
+        std::string pr_file = basefilename + "_CompError/accurate_pr_top100.value";
+        std::ifstream fin(pr_file.c_str());
         int vid ;
         float err=0, appv; //accurate pagerank value
         for(int i = 0; i < ntop; i++ ){
@@ -245,8 +246,9 @@ public:
         err = err / ntop;
         logstream(LOG_DEBUG) << "Error : " << err << std::endl;
 
+        std::string error_file = basefilename + "_CompError/GraphChi_pr_top100.error";
         std::ofstream errfile;
-        errfile.open(basefilename + "_CompError/GraphChi_pr_top100.error", std::ofstream::app);
+        errfile.open(error_file.c_str(), std::ofstream::app);
         errfile << err << "\n" ;
         errfile.close();
     }
