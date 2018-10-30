@@ -359,7 +359,7 @@ namespace graphchi {
             
        
             
-#pragma omp parallel for schedule(dynamic, 1)
+// #pragma omp parallel for schedule(dynamic, 1)
             for(int p=-1; p < nshards; p++)  {
                 if (p==(-1)) {
                     /* Load memory shard - is internally parallelized */
@@ -911,6 +911,7 @@ namespace graphchi {
                             exec_updates_inmemory_mode(userprogram, vertices); 
                         }
                         logstream(LOG_INFO) << "Finished updates" << std::endl;
+                        userprogram.compUtilization(base_filename);
                         
                         
                         /* Save vertices */
@@ -922,8 +923,8 @@ namespace graphchi {
                         /* Delete edge buffer. TODO: reuse. */
                         if (edata != NULL) {
                             //delete edata;
-                            //edata = NULL;
                             free(edata);
+                            edata = NULL;
                         }
                        
                     } // while subintervals

@@ -49,6 +49,83 @@ public:
     /**
      *  Vertex update function.
      */
+    void update1(graphchi_vertex<VertexDataType, EdgeDataType > &vertex, graphchi_context &gcontext) {
+        if (gcontext.iteration == 0) {
+            
+            if (is_source(vertex.id())) {
+                /* Add a random walk particle, represented by the hop of the walk */
+                WalkDataType walk = 1;
+                for(unsigned i=0; i < R; i++) {
+                    /* Get random out edge's vector */
+                    graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
+                    if (outedge != NULL) {
+                        chivector<WalkDataType> * evector = outedge->get_vector();
+                        evector->add(walk);
+                        gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+                    }else{ //random select a vertex to jump
+                        ;
+                    }
+                }
+                vertex.set_data(R);
+            }else{
+                vertex.set_data(0);
+            }
+        } else {
+            /* Check inbound edges for walks and advance them. */
+            int num_walks = 0;
+            //update the walks from in_edges
+            for(int i=0; i < vertex.num_inedges(); i++) {
+                graphchi_edge<EdgeDataType> * edge = vertex.inedge(i);
+                chivector<WalkDataType> * invector = edge->get_vector();
+                int j;
+                for(j=0; j < invector->size(); j++) {
+                    /* Get one walk */
+                    WalkDataType walk = invector->get(j);
+                    assert(walk >= (WalkDataType)gcontext.iteration);
+                    if(walk > (WalkDataType)gcontext.iteration ) break;
+                    /* Move to a random out-edge */
+                    graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
+                    if (outedge != NULL ) {
+                        chivector<WalkDataType> * outvector = outedge->get_vector();
+                        outvector->add(walk+1);
+                        gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+                    }else{ //random jump
+                        restart_walks.add(walk+1);
+                        gcontext.scheduler->add_task(a); // Schedule destination
+                        updateInfo(outedge->vertex_id());
+                    }
+                    num_walks ++;
+                }
+                /* Remove all walks from the inbound vector */
+                // invector->clear();
+                if( j > 0 ) invector->truncate(j);
+            }
+
+            //update the walks in random_jump_walks
+            if(vertex.id()==a){
+                int i;
+                int total_walks = restart_walks.size();
+                for(i=0; i < total_walks; i++) {
+                    WalkDataType walk = restart_walks.get(i);
+                    assert(walk >= (WalkDataType)gcontext.iteration);
+                    if(walk > (WalkDataType)gcontext.iteration ) break;
+                    /* Move to a random out-edge */
+                    graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
+                    if (outedge != NULL) {
+                        chivector<WalkDataType> * outvector = outedge->get_vector();
+                        /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
+                        outvector->add(walk+1);
+                        gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
+                    }
+                    num_walks ++;
+                }
+                if( i > 0 ) restart_walks.truncate(i);
+                vertex.set_data(vertex.get_data() + num_walks);
+            }
+        }
+    }//later
+
+
     void update(graphchi_vertex<VertexDataType, EdgeDataType > &vertex, graphchi_context &gcontext) {
         if (gcontext.iteration == 0) {
             
@@ -85,15 +162,14 @@ public:
                     if(walk > (WalkDataType)gcontext.iteration ) break;
                     /* Move to a random out-edge */
                     graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
-                    float cc = ((float)rand())/RAND_MAX;
-                    if (outedge != NULL && cc > 0.15 ) {
+                    if (outedge != NULL ) {
                         chivector<WalkDataType> * outvector = outedge->get_vector();
                         outvector->add(walk+1);
                         gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
                         updateInfo(outedge->vertex_id());
                     }else{
-                        restart_walks.add(walk+1);
-                        gcontext.scheduler->add_task(vertex.id()); // Schedule destination
+                        // restart_walks.add(walk+1);
+                        // gcontext.scheduler->add_task(vertex.id()); // Schedule destination
                     }
                 }
                 /* Remove all walks from the inbound vector */
@@ -110,27 +186,24 @@ public:
                     if(walk > (WalkDataType)gcontext.iteration ) break;
                     /* Move to a random out-edge */
                     graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
-                    float cc = ((float)rand())/RAND_MAX;
-                    if (outedge != NULL && cc > 0.15 ) {
+                    if (outedge != NULL ) {
                         chivector<WalkDataType> * outvector = outedge->get_vector();
                         /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
                         outvector->add(walk+1);
                         gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
                         updateInfo(outedge->vertex_id());
-                    }else{ //random jump
-                        restart_walks.add(walk+1);
-                        gcontext.scheduler->add_task(vertex.id()); // Schedule destination
                     }
                 }
                 if( i > 0 ) restart_walks.truncate(i);
             }
         }
-    }
+    }//right
     
     /**
      * Called before an iteration starts.
      */
     void before_iteration(int iteration, graphchi_context &gcontext) {
+        logstream(LOG_DEBUG) << "restart_walks.size() capacity : " << restart_walks.size() << " " << restart_walks.capacity() << std::endl;
     }
     
     /**

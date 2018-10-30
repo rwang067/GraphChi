@@ -93,7 +93,8 @@ public:
                     /* Get one walk */
                     WalkDataType walk = invector->get(j);
                     unsigned hop = (unsigned)(walk & 0xffff);
-                    assert(hop%L >= (WalkDataType)gcontext.iteration);
+                    // assert(hop%L >= (WalkDataType)gcontext.iteration);
+                    if(hop%L < (WalkDataType)gcontext.iteration ) continue;
                     if(hop%L > (WalkDataType)gcontext.iteration ) break;
                     /* Move to a random out-edge */
                     graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();

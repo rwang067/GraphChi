@@ -22,6 +22,11 @@ struct PageRank : public GraphChiProgram<VertexDataType, EdgeDataType> {
 public:
     unsigned N, R, L;
     chivector<WalkDataType> *random_jump_walks;
+    // unsigned used_edges[4], total_edges[4];
+    // unsigned nshards;
+    // std::vector< vid_t > internal_end; 
+    // std::vector< std::priority_queue<vid_t> > random_jump_walks;
+
     
 public:
 
@@ -29,20 +34,44 @@ public:
         return true;
     }
 
-    void initialization(unsigned _N, unsigned _R, unsigned _L){
+    // unsigned Ivl_belong(vid_t v){
+    //     for(unsigned p = 0; p < nshards; p++)
+    //         if( v <= internal_end[p] )
+    //             return p;
+    //     assert(false);
+    //     return -1;
+    // }
+
+    void initialization(unsigned _N, unsigned _R, unsigned _L, unsigned _nshards, std::string basefilename){
         N = _N;
         R = _R;
         L = _L;
+        // nshards = _nshards;
+        // logstream(LOG_DEBUG) << "random_jump_walks size : " << sizeof(std::vector< std::priority_queue<vid_t> >) << " " << nshards << std::endl;
+        // random_jump_walks.resize(nshards);
+        // internal_end.resize(nshards);
+        // std::ifstream ivlfile;
+        // ivlfile.open(filename_intervals(basefilename, nshards));
+        // for(unsigned p = 0; p < nshards; p++)
+        //     ivlfile >> internal_end[p];
+        // ivlfile.close();
+
         logstream(LOG_DEBUG) << "random_jump_walks size : " << sizeof(chivector<WalkDataType>) << " " << N << std::endl;
         random_jump_walks = new chivector<WalkDataType>[N];
         for(unsigned i=0; i<N; i++)
             random_jump_walks[i].resize(0);
+
+        // for(unsigned i=0; i<4; i++){
+        //     used_edges[i] = 0;
+        //     total_edges[i] = 0;
+        // }
     }
     
     /**
      *  Vertex update function.
      */
     void update(graphchi_vertex<VertexDataType, EdgeDataType > &vertex, graphchi_context &gcontext) {
+        // total_edges[omp_get_thread_num()] += vertex.num_outedges() + vertex.num_inedges();
         if (gcontext.iteration == 0) {
             
             if (is_source(vertex.id())) {
@@ -57,11 +86,13 @@ public:
                         gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
                     }else{ //random select a vertex to jump
                         vid_t rand_vert = rand() % N;
+                        // random_jump_walks[Ivl_belong(rand_vert)].push( rand_vert );
                         random_jump_walks[rand_vert].add(walk);
                         gcontext.scheduler->add_task(rand_vert); // Schedule destination
                     }
                 }
                 vertex.set_data(R);
+                // used_edges[omp_get_thread_num()] += R;
             }else{
                 vertex.set_data(0);
             }
@@ -87,6 +118,7 @@ public:
                         gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
                     }else{ //random jump
                         vid_t rand_vert = rand() % N;
+                        // random_jump_walks[Ivl_belong(rand_vert)].push( rand_vert );
                         random_jump_walks[rand_vert].add(walk+1);
                         gcontext.scheduler->add_task(rand_vert); // Schedule destination
                     }
@@ -97,6 +129,7 @@ public:
                 invector->truncate(j);
             }
 
+            
             //update the walks in random_jump_walks
             int i;
             int total_walks = random_jump_walks[vertex.id()].size();
@@ -104,12 +137,13 @@ public:
                 WalkDataType walk = random_jump_walks[vertex.id()].get(i);
                 assert(walk >= (WalkDataType)gcontext.iteration);
                 if(walk > (WalkDataType)gcontext.iteration ) break;
-                /* Move to a random out-edge */
+                // used_edges[omp_get_thread_num()]++;
+                // Move to a random out-edge
                 graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();
                 float cc = ((float)rand())/RAND_MAX;
                 if (outedge != NULL && cc > 0.15 ) {
                     chivector<WalkDataType> * outvector = outedge->get_vector();
-                    /* Add a random walk particle, represented by the vertex-id of the source (this vertex) */
+                    //Add a random walk particle, represented by the vertex-id of the source (this vertex)
                     outvector->add(walk+1);
                     gcontext.scheduler->add_task(outedge->vertex_id()); // Schedule destination
                 }else{ //random jump
@@ -120,7 +154,11 @@ public:
                 num_walks ++;
             }
             if( i > 0 ) random_jump_walks[vertex.id()].truncate(i);
+            
+
+
             vertex.set_data(vertex.get_data() + num_walks);
+            // used_edges[omp_get_thread_num()] += num_walks;
         }
     }
     
@@ -212,6 +250,24 @@ public:
         errfile << err << "\n" ;
         errfile.close();
     }
+
+    // void compUtilization(std::string basefilename){
+    //     for(int i = 1; i < 4; i++){
+    //         used_edges[0] += used_edges[i];
+    //         total_edges[0] += total_edges[i];
+    //     }
+    //     float utilization = (float)used_edges[0] / (float)total_edges[0];
+    //     logstream(LOG_DEBUG) << "IO utilization = " << utilization << std::endl;
+    //     std::ofstream utilizationfile;
+    //     utilizationfile.open(basefilename + "_CompError/GraphChi_pr_utilization.csv", std::ofstream::app);
+    //     utilizationfile << total_edges[0] << "\t" << used_edges[0] << "\t" << utilization << "\n" ;
+    //     utilizationfile.close();
+
+    //     for(unsigned i=0; i<4; i++){
+    //         used_edges[i] = 0;
+    //         total_edges[i] = 0;
+    //     }
+    // }
     
 };
 
@@ -240,7 +296,7 @@ int main(int argc, const char ** argv) {
     
     /* Run */
     PageRank program;
-    program.initialization(N,R,L);
+    program.initialization(N,R,L,nshards,filename);
     graphchi_engine<VertexDataType, EdgeDataType> engine(filename, nshards, scheduler, m);
     if (preexisting_shards) {
         engine.reinitialize_edge_data(0);
@@ -256,7 +312,7 @@ int main(int argc, const char ** argv) {
     }
 
     // program.writeFile();
-    // program.computeError(100);
+    program.computeError(filename,100);
 
     /* Report execution metrics */
     metrics_report(m);

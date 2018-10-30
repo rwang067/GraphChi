@@ -85,6 +85,14 @@ namespace graphchi {
          * Update function.
          */
         virtual void update(vertex_t &v, graphchi_context &gcontext)  = 0;    
+
+         /**
+         * Compute IO utilization //by Wang 20180910
+         */
+        virtual void compUtilization(std::string basefilename){
+        }  
+
+        
     };
 
 }
