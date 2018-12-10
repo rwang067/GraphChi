@@ -107,7 +107,7 @@ public:
                 for(j=0; j < invector->size(); j++) {
                     /* Get one walk */
                     WalkDataType walk = invector->get(j);
-                    assert(walk >= (WalkDataType)gcontext.iteration);
+                    // assert(walk >= (WalkDataType)gcontext.iteration);
                     if(walk > (WalkDataType)gcontext.iteration ) break;
                     /* Move to a random out-edge */
                     graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();

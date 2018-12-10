@@ -1,3 +1,6 @@
+# minitor csv
+monitor/*.csv
+
 # Compiled Object files
 *.slo
 *.lo
