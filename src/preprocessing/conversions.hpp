@@ -613,12 +613,13 @@ namespace graphchi {
     int convert(std::string basefilename, std::string nshards_string) {
         sharder<EdgeDataType, FinalEdgeDataType> sharderobj(basefilename);
         
-        std::string file_type_str = get_option_string_interactive("filetype", "edgelist, adjlist, binedgelist, metis");
-        if (file_type_str != "adjlist" && file_type_str != "edgelist"  && file_type_str != "binedgelist" &&
-            file_type_str != "multivalueedgelist" && file_type_str != "metis") {
-            logstream(LOG_ERROR) << "You need to specify filetype: 'edgelist',  'adjlist', 'binedgelist', or 'metis'." << std::endl;
-            assert(false);
-        }
+        // std::string file_type_str = get_option_string_interactive("filetype", "edgelist, adjlist, binedgelist, metis");
+        // if (file_type_str != "adjlist" && file_type_str != "edgelist"  && file_type_str != "binedgelist" &&
+        //     file_type_str != "multivalueedgelist" && file_type_str != "metis") {
+        //     logstream(LOG_ERROR) << "You need to specify filetype: 'edgelist',  'adjlist', 'binedgelist', or 'metis'." << std::endl;
+        //     assert(false);
+        // }
+        std::string file_type_str = "edgelist";
         
         /* Start preprocessing */
         sharderobj.start_preprocessing();
