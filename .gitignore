@@ -1,5 +1,6 @@
 # minitor csv
 monitor/*.csv
+.vscode/
 
 # Compiled Object files
 *.slo

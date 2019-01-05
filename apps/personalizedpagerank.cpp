@@ -164,7 +164,7 @@ int main(int argc, const char ** argv) {
     std::string filename = get_option_string("file", "../DataSet/LiveJournal/soc-LiveJournal1.txt");  // Base filename
     int source           = get_option_int("source", 0); // 
     // int N           = get_option_int("N", 4847571); // Number of iterations
-    int R           = get_option_int("R", 1000); // 
+    int R           = get_option_int("R", 2000); // 
     int L           = get_option_int("L", 10); // Number of iterations
     bool scheduler       = true;                       // Whether to use selective scheduling
     
