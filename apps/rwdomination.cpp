@@ -22,6 +22,7 @@ struct RWDomination : public GraphChiProgram<VertexDataType, EdgeDataType> {
 public:
     unsigned N, R, L;
     chivector<WalkDataType> *random_jump_walks;
+    unsigned used_edges[4], total_edges[4];
     
 public:
 
@@ -37,12 +38,17 @@ public:
         random_jump_walks = new chivector<WalkDataType>[N];
         for(unsigned i=0; i<N; i++)
             random_jump_walks[i].resize(0);
+        for(unsigned i=0; i<4; i++){
+            used_edges[i] = 0;
+            total_edges[i] = 0;
+        }
     }
     
     /**
      *  Vertex update function.
      */
     void update(graphchi_vertex<VertexDataType, EdgeDataType > &vertex, graphchi_context &gcontext) {
+        total_edges[omp_get_thread_num()] += vertex.num_outedges() + vertex.num_inedges();
         if (gcontext.iteration == 0) {
             
             if (is_source(vertex.id())) {
@@ -62,6 +68,7 @@ public:
                     }
                 }
                 vertex.set_data(R);
+                used_edges[omp_get_thread_num()] += R;
             }else{
                 vertex.set_data(0);
             }
@@ -122,6 +129,25 @@ public:
             }
             if( i > 0 ) random_jump_walks[vertex.id()].truncate(i);
             vertex.set_data(vertex.get_data() + num_walks);
+            used_edges[omp_get_thread_num()] += num_walks;
+        }
+    }
+
+    void compUtilization(std::string basefilename){
+        for(int i = 1; i < 4; i++){
+            used_edges[0] += used_edges[i];
+            total_edges[0] += total_edges[i];
+        }
+        float utilization = (float)used_edges[0] / (float)total_edges[0];
+        // logstream(LOG_DEBUG) << "IO utilization = " << utilization << std::endl;
+        std::ofstream utilizationfile;
+        utilizationfile.open("GraphChi_rwd_utilization.csv", std::ofstream::app);
+        utilizationfile << total_edges[0] << "\t" << used_edges[0] << "\t" << utilization << "\n" ;
+        utilizationfile.close();
+
+        for(unsigned i=0; i<4; i++){
+            used_edges[i] = 0;
+            total_edges[i] = 0;
         }
     }
     
