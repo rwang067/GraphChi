@@ -12,7 +12,7 @@ example_apps: example_apps/simrank example_apps/connectedcomponents example_apps
 als: example_apps/matrix_factorization/als_edgefactors  example_apps/matrix_factorization/als_vertices_inmem
 tests: tests/basic_smoketest tests/bulksync_functional_test tests/dynamicdata_smoketest tests/test_dynamicedata_loader
 
-apps: comp query
+apps: apps/personalizedpagerank apps/simrank apps/graphlet apps/rwdomination apps/rawrandomwalks
 comp: apps/pagerank apps/rwdomination apps/graphlet  
 query: apps/personalizedpagerank apps/simrank apps/reachability 
 
