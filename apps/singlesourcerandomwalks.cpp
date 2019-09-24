@@ -46,7 +46,7 @@ public:
         total_edges = new unsigned[nThreads];
         used_edges = new unsigned[nThreads];
         strandedwalks = new unsigned[nThreads];
-         for(int i=0; i<4; i++){
+         for(int i=0; i<nThreads; i++){
             total_edges[i] = 0;
             used_edges[i] = 0;
             strandedwalks[i] = 0;
@@ -135,12 +135,13 @@ public:
             if (is_source(vertex.id())) {
                 int i;
                 int total_walks = restarted_walks.size();
+                logstream(LOG_WARNING) << "vertex.id() = " << vertex.id() << ", total_walks = " << total_walks << std::endl;
                 for(i=0; i < total_walks; i++) {
                     WalkDataType walk = restarted_walks.get(i);
                     unsigned hop = (unsigned)(walk & 0xffff);
                     if(hop < (unsigned)gcontext.iteration){
                         logstream(LOG_WARNING) << "hop = " << hop << ", iteration = " <<(unsigned)gcontext.iteration << std::endl;
-                        hop = (unsigned)gcontext.iteration;
+                        continue;
                         // assert(false);
                     }
                     if(hop > (WalkDataType)gcontext.iteration ) break;
@@ -171,7 +172,8 @@ public:
     }
 
     void compUtilization(std::string basefilename){
-        for(int i = 1; i < 4; i++){
+        int nThreads = omp_get_max_threads();
+        for(int i = 1; i < nThreads; i++){
             total_edges[0] += total_edges[i];
             used_edges[0] += used_edges[i];
             strandedwalks[0] += strandedwalks[i];
@@ -183,7 +185,7 @@ public:
         utilizationfile << curblock << "\t" << total_edges[0] << "\t" << used_edges[0] << "\t" << utilization << "\t" << strandedwalks[0] << "\n" ;
         utilizationfile.close();
 
-        for(unsigned i=0; i<4; i++){
+        for(int i=0; i<nThreads; i++){
             total_edges[i] = 0;
             used_edges[i] = 0;
             strandedwalks[i] = 0;

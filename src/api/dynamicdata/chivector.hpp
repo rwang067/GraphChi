@@ -144,7 +144,8 @@ public:
     }
 
     void truncate(int idx){
-        assert(idx <= nsize);
+        // assert(idx <= nsize);
+        if(idx > nsize) idx = nsize;
         if(nsize <= ncapacity){
             for( int i = idx; i < nsize; i++ ){
                 data[i-idx] = data[i];
