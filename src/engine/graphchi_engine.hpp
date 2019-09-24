@@ -478,7 +478,7 @@ namespace graphchi {
                 chicontext.iteration = iter;
                 if (iter > 0) // First one run before -- ugly
                     userprogram.before_iteration(iter, chicontext);
-                userprogram.before_exec_interval(0, (int)num_vertices(), chicontext);
+                userprogram.before_exec_interval(0, 0, (int)num_vertices(), chicontext);
                 
                 if (use_selective_scheduling) {
                     if (iter > 0 && !scheduler->has_new_tasks) {
@@ -850,7 +850,7 @@ namespace graphchi {
                     if (interval_st > interval_en) continue; // Can happen on very very small graphs.
 
                     if (!is_inmemory_mode())
-                        userprogram.before_exec_interval(interval_st, interval_en, chicontext);
+                        userprogram.before_exec_interval(exec_interval, interval_st, interval_en, chicontext);
 
                     /* Flush stream shard for the exec interval */
                     sliding_shards[exec_interval]->flush();

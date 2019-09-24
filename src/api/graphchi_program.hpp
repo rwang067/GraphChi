@@ -72,7 +72,7 @@ namespace graphchi {
         /**
          * Called before an execution interval is started.
          */
-        virtual void before_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {        
+        virtual void before_exec_interval(int exec_interval, vid_t window_st, vid_t window_en, graphchi_context &gcontext) {        
         }
         
         /**
@@ -84,7 +84,7 @@ namespace graphchi {
         /**
          * Update function.
          */
-        virtual void update(vertex_t &v, graphchi_context &gcontext)  = 0;    
+        virtual void update(vertex_t &v, graphchi_context &gcontext)  = 0;
 
          /**
          * Compute IO utilization //by Wang 20180910
