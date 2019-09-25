@@ -172,6 +172,21 @@ public:
     }
 
     void compUtilization(std::string basefilename){
+    }
+    
+    /**
+     * Called before an execution interval is started.
+     */
+    void before_exec_interval(int exec_interval, vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
+        curblock = exec_interval;
+        block_st = window_st;
+        block_en = window_en;
+    }
+    
+    /**
+     * Called after an execution interval has finished.
+     */
+    void after_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
         int nThreads = omp_get_max_threads();
         for(int i = 1; i < nThreads; i++){
             total_edges[0] += total_edges[i];
@@ -190,21 +205,6 @@ public:
             used_edges[i] = 0;
             strandedwalks[i] = 0;
         }
-    }
-    
-    /**
-     * Called before an execution interval is started.
-     */
-    void before_exec_interval(int exec_interval, vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
-        curblock = exec_interval;
-        block_st = window_st;
-        block_en = window_en;
-    }
-    
-    /**
-     * Called after an execution interval has finished.
-     */
-    void after_exec_interval(vid_t window_st, vid_t window_en, graphchi_context &gcontext) {
     }
 
     
