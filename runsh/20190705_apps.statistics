@@ -1,0 +1,45 @@
+2019.7.6 - 2019.7.14
+random walks applications performance comparison (clear pagecache each time) in 64GB R730, dataset = Twitter
+Turn on Page Cache, clear pagecache each time, nshards = 16
+APP = PPR 
+160	3981.67
+160	4167.26
+App = SimRank
+176	4651.31
+176	4581.98
+App = Graphlet
+64	1823.44
+64	1804.36
+64	1854.56
+64	1836.52
+64	1800.23
+64	1810.29
+64	1849.73
+64	1820.04
+64	1799.51
+64	1881.74
+App = RandomWalkDomination
+
+random walks applications performance comparison (clear pagecache each time) in 64GB R730, dataset = Friendster
+Turn on Page Cache, clear pagecache each time, nshards = 27
+App = PPR
+App = SimRank
+App = Graphlet
+108	2875.96
+108	2886.08
+108	2882.87
+108	2889.18
+108	2882.02
+108	2857.36
+108	2896.7
+108	2876.42
+108	2947.67
+108	2875.67
+2019.7.9 
+random walks applications performance comparison (clear pagecache each time) in 64GB R730, dataset = Yahoo
+Turn on Page Cache, clear pagecache each time, nshards = 65
+App = PPR
+App = SimRank
+166	3368.92
+
+

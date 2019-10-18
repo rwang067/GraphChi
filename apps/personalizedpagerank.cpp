@@ -99,7 +99,7 @@ public:
                 int total_walks = restart_walks.size();
                 for(i=0; i < total_walks; i++) {
                     WalkDataType walk = restart_walks.get(i);
-                    assert(walk >= (WalkDataType)gcontext.iteration);
+                    // assert(walk >= (WalkDataType)gcontext.iteration);
                     if(walk > (WalkDataType)gcontext.iteration ) break;
                     /* Move to a random out-edge */
                     graphchi_edge<EdgeDataType> * outedge = vertex.random_outedge();

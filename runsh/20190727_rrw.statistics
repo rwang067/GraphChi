@@ -1,0 +1,24 @@
+2019.7.27 
+raw random walks performance comparison (clear pagecache each time) in 64GB R730, dataset = Twitter
+Turn on Page Cache, clear pagecache each time, nshards = 16
+L = 10, different Rs
+L = 10, R =  1000
+2019.7.27 
+raw random walks performance comparison (clear pagecache each time) in 64GB R730, dataset = Twitter
+Turn on Page Cache, clear pagecache each time, nshards = 16
+L = 10, different Rs
+L = 10, R =  1000
+2019.7.27 
+raw random walks performance comparison (clear pagecache each time) in 64GB R730, dataset = Twitter
+Turn on Page Cache, clear pagecache each time, nshards = 16
+L = 10, different Rs
+L = 10, R =  1000
+L = 10, R =  10000
+L = 10, R =  100000
+L = 10, R =  1000000
+L = 10, R =  10000000
+L = 10, R =  100000000
+L = 10, R =  1000000000
+36	671.51
+427	5412.18
+270	5532.71
